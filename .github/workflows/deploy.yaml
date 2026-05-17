@@ -29,14 +29,19 @@ jobs:
         # בדיקה האם האפליקציה (BuildConfig) כבר קיימת בתוך ה-Namespace
         if ! oc get bc/customer-service 2>/dev/null; then
           echo "Creating new app from Dockerfile build..."
-          # יצירת האפליקציה עם הגדרת פורט המטרה הנכון עבור OpenShift
           oc new-app . --name=customer-service --strategy=docker --target-port=8080
-          # חשיפת הסרוויס החוצה לאינטרנט לקבלת כתובת URL
           oc expose svc/customer-service
         else
-          echo "App exists, ensuring ports are correct and triggering new build..."
-          # פקודת תיקון: מעדכנת ומיישרת בכוח את ה-Service הקיים לעבוד מול פורט 8080
-          oc patch svc/customer-service -p '{"spec":{"ports":[{"port":8080,"targetPort":8080}]}}'
-          # הרצת ה-Build מחדש עם הקוד העדכני
+          echo "App exists. Cleaning up old network layout to ensure port 8080 is used..."
+          
+          # מחיקת ה-Service וה-Route הישנים (אם הם קיימים) כדי שלא יפריעו
+          oc delete svc/customer-service --ignore-not-found=true
+          oc delete route/customer-service --ignore-not-found=true
+          
+          # יצירה מחדש של ה-Service וה-Route בצורה תקינה לחלוטין מול הפורט החדש 8080
+          oc create service clusterip customer-service --tcp=8080:8080
+          oc expose svc/customer-service
+          
+          echo "Triggering new build..."
           oc start-build customer-service --from-dir=. --follow
         fi
