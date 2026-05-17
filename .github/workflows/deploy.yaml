@@ -20,17 +20,21 @@ jobs:
     - name: Log in to OpenShift
       uses: redhat-actions/oc-login@v1
       with:
-        openshift_server: ${{ secrets.OCP_SERVER }}
+        openshift_server_url: ${{ secrets.OCP_SERVER }}
         openshift_token: ${{ secrets.OCP_TOKEN }}
         namespace: ${{ secrets.OCP_NAMESPACE }}
 
     - name: Create or Update OpenShift Application
       run: |
+        # בדיקה האם האפליקציה (BuildConfig) כבר קיימת בתוך ה-Namespace
         if ! oc get bc/customer-service 2>/dev/null; then
           echo "Creating new app from Dockerfile build..."
+          # פקודה ראשונית שמזהה את ה-Dockerfile, יוצרת קונטיינר ומרימה סרוויס
           oc new-app . --name=customer-service --strategy=docker
+          # חשיפת הסרוויס החוצה לאינטרנט כדי לקבל כתובת URL (Route)
           oc expose svc/customer-service
         else
           echo "App exists, triggering new build..."
+          # אם האפליקציה כבר קיימת, הפקודה הזו לוקחת את הקוד העדכני ומבצעת Build מחדש
           oc start-build customer-service --from-dir=. --follow
         fi
