@@ -34,7 +34,9 @@ jobs:
           # חשיפת הסרוויס החוצה לאינטרנט לקבלת כתובת URL
           oc expose svc/customer-service
         else
-          echo "App exists, triggering new build..."
-          # אם האפליקציה קיימת, הפקודה הזו לוקחת את הקוד העדכני ומבצעת Build מחדש
+          echo "App exists, ensuring ports are correct and triggering new build..."
+          # פקודת תיקון: מעדכנת ומיישרת בכוח את ה-Service הקיים לעבוד מול פורט 8080
+          oc patch svc/customer-service -p '{"spec":{"ports":[{"port":8080,"targetPort":8080}]}}'
+          # הרצת ה-Build מחדש עם הקוד העדכני
           oc start-build customer-service --from-dir=. --follow
         fi
