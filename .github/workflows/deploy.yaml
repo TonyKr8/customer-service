@@ -1,25 +1,44 @@
-- name: Create or Update OpenShift Application
+name: Deploy to OpenShift
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check out repository
+      uses: actions/checkout@v4
+
+    - name: Install OpenShift CLI (oc)
+      uses: redhat-actions/oc-installer@v1
+      with:
+        oc_version: 'latest'
+
+    - name: Log in to OpenShift
+      uses: redhat-actions/oc-login@v1
+      with:
+        openshift_server_url: ${{ secrets.OCP_SERVER }}
+        openshift_token: ${{ secrets.OCP_TOKEN }}
+        namespace: ${{ secrets.OCP_NAMESPACE }}
+
+    - name: Create or Update OpenShift Application
       run: |
-        # בדיקה האם האפליקציה (BuildConfig) כבר קיימת בתוך ה-Namespace
         if ! oc get bc/customer-service 2>/dev/null; then
-          echo "Creating new app from Dockerfile build..."
+          echo "Creating new app..."
           oc new-app . --name=customer-service --strategy=docker --target-port=8080
           oc expose svc/customer-service
         else
-          echo "App exists. Cleaning up old network layout to ensure port 8080 is used..."
-          
-          # מחיקה לטובת סנכרון
+          echo "App exists. Cleaning up and recreating service on port 8080..."
           oc delete svc/customer-service --ignore-not-found=true
           oc delete route/customer-service --ignore-not-found=true
-          
-          # יצירה מחדש וחשיפה
           oc create service clusterip customer-service --tcp=8080:8080
           oc expose svc/customer-service
-          
           echo "Triggering new build..."
           oc start-build customer-service --from-dir=. --follow
         fi
-
         echo "------------------------------------------------------"
         echo "YOUR APPLICATION URL IS:"
         oc get route customer-service -o jsonpath='{.spec.host}'
